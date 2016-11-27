@@ -70,15 +70,21 @@ size_t strtosize_t(const char *input) {
 }
 
 void network_activate(network_t *net) {
+	int i, j;
 	double iln, hln, oln; /* ln(input), ln(hidden), ln(output) */
 
-
+	for(i = 0; i < INPUT_NEURONS; i++) {
+		for(j = 0; j < HIDDEN_NEURONS; j++) {
+			printf("INPUT(%d) HIDDEN(%d) WEIGHT\t%f\n", i, j, net->weights_ih[i][j]);
+		}
+	}
 }
 
 int main() {
 	int i, j;
 	network_t *net;
 	neuron_t neuron;
+	number_t weight;
 	char *raw_json;
 	char *layer;
 	size_t from, to;
@@ -142,7 +148,13 @@ int main() {
 		from = strtosize_t(object_get_string(connection_json, "from"));
 		to = strtosize_t(object_get_string(connection_json, "to"));
 
-		net->weights[from][to] = object_get_number(connection_json, "weight");
+		weight = object_get_number(connection_json, "weight");
+
+		if(from < INPUT_NEURONS) {
+			net->weights_ih[from][to - INPUT_NEURONS] = weight;
+		} else {
+			net->weights_ho[from - INPUT_NEURONS][to - INPUT_NEURONS - HIDDEN_NEURONS] = weight;
+		}
 	}
 
 	/* Run the net! */
