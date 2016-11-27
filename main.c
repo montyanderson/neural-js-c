@@ -39,47 +39,75 @@ char *read_file(char *filename) {
 typedef double number_t;
 
 typedef struct {
-	number_t activation, bias;
+	number_t activation;
+	number_t bias;
+	number_t state;
+	int id;
 } neuron_t;
 
+#define INPUT_NEURONS 2
+#define HIDDEN_NEURONS 3
+#define OUTPUT_NEURONS 1
+#define TOTAL_NEURONS INPUT_NEURONS + HIDDEN_NEURONS + OUTPUT_NEURONS
+
 typedef struct {
-	neuron_t input[2];
-	neuron_t hidden[3];
-	neuron_t output[1];
+	neuron_t input[INPUT_NEURONS];
+	neuron_t hidden[HIDDEN_NEURONS];
+	neuron_t output[OUTPUT_NEURONS];
+	number_t weights_ih[INPUT_NEURONS][HIDDEN_NEURONS];
+	number_t weights_ho[HIDDEN_NEURONS][HIDDEN_NEURONS];
 } network_t;
 
+#define object_get_string(object, key) json_string_value(json_object_get(object, key))
+#define object_get_number(object, key) json_number_value(json_object_get(object, key))
+#define NEURON_STR "output %d\tbias: %f\tactivation: %f\n"
+
+size_t strtosize_t(const char *input) {
+	size_t i;
+	sscanf(input, "%zu", &i);
+
+	return i;
+}
+
+void network_activate(network_t *net) {
+	double iln, hln, oln; /* ln(input), ln(hidden), ln(output) */
+
+
+}
+
 int main() {
-	int i;
+	int i, j;
 	network_t *net;
 	neuron_t neuron;
 	char *raw_json;
 	char *layer;
-	json_t *root, *neurons_json, *neuron_json;
+	size_t from, to;
+	json_t *root, *neurons_json, *neuron_json, *connections_json, *connection_json;
 	json_error_t error;
 	size_t input_counter = 0;
 	size_t hidden_counter = 0;
 	size_t output_counter = 0;
 
-	net = malloc(sizeof(network_t));
+	printf("sizeof(network_t) = %lu\n", sizeof(network_t));
+
+	net = calloc(1, sizeof(network_t));
 
 	raw_json = read_file("net.json");
 	root = json_loads(raw_json, 0, &error);
 	free(raw_json);
 
-	neurons_json = json_object_get(root, "neurons");
+	/* Parse neurons json */
 
-	#define object_get_string(object, key) json_string_value(json_object_get(object, key))
-	#define object_get_number(object, key) json_number_value(json_object_get(object, key))
+	neurons_json = json_object_get(root, "neurons");
 
 	for(i = 0; i < json_array_size(neurons_json); i++) {
 		neuron_json = json_array_get(neurons_json, i);
 
 		neuron.activation = object_get_number(neuron_json, "activation");
 		neuron.bias = object_get_number(neuron_json, "bias");
+		neuron.id = i;
 
 		layer = (char *) object_get_string(neuron_json, "layer");
-
-
 
 		if(strcmp(layer, "input") == 0) {
 			net->input[input_counter++] = neuron;
@@ -92,8 +120,6 @@ int main() {
 		}
 	}
 
-	#define NEURON_STR "output %d\tbias: %f\tactivation: %f\n"
-
 	for(i = 0; i < sizeof(net->input) / sizeof(neuron_t); i++) {
 		printf(NEURON_STR, i, net->input[i].bias, net->input[i].activation);
 	}
@@ -105,4 +131,26 @@ int main() {
 	for(i = 0; i < sizeof(net->output) / sizeof(neuron_t); i++) {
 		printf(NEURON_STR, i, net->output[i].bias, net->output[i].activation);
 	}
+
+	/* Parse connections json */
+
+	connections_json = json_object_get(root, "connections");
+
+	for(i = 0; i < json_array_size(connections_json); i++) {
+		connection_json = json_array_get(connections_json, i);
+
+		from = strtosize_t(object_get_string(connection_json, "from"));
+		to = strtosize_t(object_get_string(connection_json, "to"));
+
+		net->weights[from][to] = object_get_number(connection_json, "weight");
+	}
+
+	/* Run the net! */
+
+	net->input[0].state = 0;
+	net->input[1].state = 1;
+
+	network_activate(net);
+
+	printf("%f\n", net->output[0].state);
 }
